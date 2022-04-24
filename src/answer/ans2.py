@@ -13,7 +13,7 @@ class MonitorLog:
     time: Optional[int]
 
 
-def parse_time(time_str) -> Optional[int]:
+def parse_time(time_str: str) -> Optional[int]:
     try:
         return int(time_str)
     except ValueError:
@@ -85,7 +85,7 @@ def transitState(log: MonitorLog, state: InterfaceState, threshould: int) -> Int
             return InterfaceState(Status.RUNNING, state.fail_start, log.date, timeout_start, timeout_count)
     
 
-def is_timeout(log) -> bool:
+def is_timeout(log: MonitorLog) -> bool:
     return log.time is None
 
 
@@ -100,17 +100,17 @@ def failure_states(logs: list[MonitorLog], threshould: int) -> dict[IPv4Interfac
     return states
 
 
-def parse_logs_from_file(path) -> list[MonitorLog]:
+def parse_logs_from_file(path: str) -> list[MonitorLog]:
     with open(path, 'r') as f:
         logs = [parse_log(line) for line in f.readlines()]
         return logs
         
 
-def format_failure_states(states) -> list[str]:
+def format_failure_states(states: dict[IPv4Interface, InterfaceState]) -> list[str]:
     return [ f'{addr}: {state.interval()}' for addr, state in states.items() ]
 
 
-def solve_as_text(src, threshould: int):
+def solve_as_text(src: str, threshould: int):
     logs = parse_logs_from_file(src)
     states = failure_states(logs, threshould)
     return '\n'.join(format_failure_states(states))
