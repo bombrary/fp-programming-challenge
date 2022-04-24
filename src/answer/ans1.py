@@ -63,31 +63,43 @@ def is_failure(log) -> bool:
     return log.time is None
 
 
-def failure_info(logs: list[MonitorLog]) -> dict[IPv4Interface, InterfaceState]:
-    info = dict()
+def failure_states(logs: list[MonitorLog]) -> dict[IPv4Interface, InterfaceState]:
+    states = dict()
     for log in sorted(logs, key=lambda log: log.date):
-        if log.addr not in info:
-            info[log.addr] = InterfaceState(Status.IDLE, None, None)
+        if log.addr not in states:
+            states[log.addr] = InterfaceState(Status.IDLE, None, None)
         
         if is_failure(log):
-            if info[log.addr].status == Status.RUNNING or info[log.addr].status == Status.IDLE:
-                info[log.addr].last_failure = log.date
-            info[log.addr].status = Status.FAILURE
+            if states[log.addr].status == Status.RUNNING or states[log.addr].status == Status.IDLE:
+                states[log.addr].last_failure = log.date
+            states[log.addr].status = Status.FAILURE
         else:
-            if info[log.addr].status == Status.FAILURE or info[log.addr].status == Status.IDLE:
-                info[log.addr].last_running = log.date
-            info[log.addr].status = Status.RUNNING
+            if states[log.addr].status == Status.FAILURE or states[log.addr].status == Status.IDLE:
+                states[log.addr].last_running = log.date
+            states[log.addr].status = Status.RUNNING
 
-    return info
+    return states
 
+
+def parse_logs_from_file(path) -> list[MonitorLog]:
+    with open(path, 'r') as f:
+        logs = [parse_log(line) for line in f.readlines()]
+        return logs
         
+
+def format_failure_states(states) -> list[str]:
+    return [ f'{addr}: {state.interval()}' for addr, state in states.items() ]
+
+
+def solve_as_text(src):
+    logs = parse_logs_from_file(src)
+    states = failure_states(logs)
+    return '\n'.join(format_failure_states(states))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('src', help='input log file')
     args = parser.parse_args()
 
-    with open(args.src, 'r') as f:
-        logs = [parse_log(line) for line in f.readlines()]
-        for addr, info in failure_info(logs).items():
-            print(f'{addr}: {info.interval()}')
+    print(solve_as_text(args.src))

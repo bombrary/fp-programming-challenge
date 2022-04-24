@@ -1,4 +1,4 @@
-from answer.ans1 import parse_log, MonitorLog, failure_info, InterfaceState, Status
+from answer.ans1 import parse_log, MonitorLog, failure_states, InterfaceState, Status, solve_as_text
 from datetime import datetime
 from ipaddress import IPv4Interface
 import pytest
@@ -69,9 +69,9 @@ def test_parse_log(line, date, interface, time):
      InterfaceState(Status.RUNNING, None, datetime(2020, 10, 19, 13, 31, 24))
     ),
 ])
-def test_failure_info(lines, value):
+def test_failure_states(lines, value):
     logs = [parse_log(line) for line in lines]
-    actual = failure_info(logs)
+    actual = failure_states(logs)
     desired = {
         IPv4Interface('10.20.30.1/16'): value
     }
@@ -121,7 +121,14 @@ def test_failure_info(lines, value):
      [('10.20.30.1/16', '-')]
     ),
 ])
-def test_failute_info(lines, desired):
+def test_failute_states(lines, desired):
     logs = [parse_log(line) for line in lines]
-    actual = [(str(k), v.interval()) for k,v in failure_info(logs).items()]
+    states = failure_states(logs)
+    actual = [(str(k), v.interval()) for k,v in states.items()]
+    assert actual == desired
+
+
+def test_solve_as_text(datadir):
+    actual = solve_as_text(datadir / 'in1.txt')
+    desired = (datadir / 'out1.txt').read_text().rstrip()
     assert actual == desired
