@@ -38,28 +38,44 @@ class Status(Enum):
 @dataclass
 class InterfaceState:
     status: Status
-    last_failure: Optional[datetime]
-    last_running: Optional[datetime]
+    fail_start: Optional[datetime]
+    fail_end: Optional[datetime]
 
     def interval(self) -> str:
-        if self.last_failure is not None and self.last_running is not None:
-            if self.last_running > self.last_failure:
-                return str((self.last_running - self.last_failure).seconds)
-            else:
-                return 'inf'
-        elif self.last_failure is not None:
+        if self.fail_start is not None and self.fail_end is not None:
+            return str((self.fail_end - self.fail_start).seconds)
+        elif self.fail_start is not None:
             # running is not shown -> permanently failure
             return 'inf'
-        elif self.last_running is not None:
-            # failure is not shown -> permanently running
-            return '-'
-        else:
+        elif self.fail_end is not None:
             # illegal condition
             return 'n/a'
+        else:
+            # failure is not shown -> permanently running
+            return '-'
 
 
+def transitState(log: MonitorLog, state: InterfaceState) -> InterfaceState:
+    if is_timeout(log):
+        # failure
+        if state.status == Status.RUNNING:
+            return InterfaceState(Status.FAILURE, log.date, None)
+        elif state.status == Status.FAILURE:
+            return state
+        else:
+            return InterfaceState(Status.FAILURE, log.date, None)
+    else:
+        # running
+        if state.status == Status.RUNNING:
+            return state
+        elif state.status == Status.FAILURE:
+            return InterfaceState(Status.RUNNING, state.fail_start, log.date)
+        else:
+            return InterfaceState(Status.RUNNING, None, state.fail_end)
+    
 
-def is_failure(log) -> bool:
+
+def is_timeout(log) -> bool:
     return log.time is None
 
 
@@ -68,15 +84,8 @@ def failure_states(logs: list[MonitorLog]) -> dict[IPv4Interface, InterfaceState
     for log in sorted(logs, key=lambda log: log.date):
         if log.addr not in states:
             states[log.addr] = InterfaceState(Status.IDLE, None, None)
-        
-        if is_failure(log):
-            if states[log.addr].status == Status.RUNNING or states[log.addr].status == Status.IDLE:
-                states[log.addr].last_failure = log.date
-            states[log.addr].status = Status.FAILURE
-        else:
-            if states[log.addr].status == Status.FAILURE or states[log.addr].status == Status.IDLE:
-                states[log.addr].last_running = log.date
-            states[log.addr].status = Status.RUNNING
+
+        states[log.addr] = transitState(log, states[log.addr])
 
     return states
 

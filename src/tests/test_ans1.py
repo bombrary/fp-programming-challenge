@@ -39,7 +39,7 @@ def test_parse_log(line, date, interface, time):
         '20201019133126,10.20.30.1/16,-',
         '20201019133127,10.20.30.1/16,-',
      ],
-     InterfaceState(Status.FAILURE, datetime(2020, 10, 19, 13, 31, 25), datetime(2020, 10, 19, 13, 31, 24))
+     InterfaceState(Status.FAILURE, datetime(2020, 10, 19, 13, 31, 25), None)
     ),
     # initially failure
     ([
@@ -66,7 +66,7 @@ def test_parse_log(line, date, interface, time):
         '20201019133126,10.20.30.1/16,1',
         '20201019133127,10.20.30.1/16,1',
      ],
-     InterfaceState(Status.RUNNING, None, datetime(2020, 10, 19, 13, 31, 24))
+     InterfaceState(Status.RUNNING, None, None)
     ),
 ])
 def test_failure_states(lines, value):
