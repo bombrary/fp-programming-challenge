@@ -37,9 +37,19 @@ class Status(Enum):
 
 @dataclass
 class FailState:
-    period: Optional[tuple[datetime, datetime]]
+    periods: list[tuple[datetime, datetime]]
+    fail_start: Optional[datetime]
     timeout_start: Optional[datetime]
     timeout_count: int
+
+    def start(self):
+        self.fail_start = self.timeout_start
+        self.timeout_start = None
+
+    def end(self, fail_end: datetime):
+        if self.fail_start is not None:
+            self.periods.append((self.fail_start, fail_end))
+            self.fail_start = None
 
 
 @dataclass
@@ -48,76 +58,57 @@ class InterfaceState:
     fail_state: FailState
 
     def interval(self) -> str:
-        if self.status == Status.FAILURE:
-            return 'inf'
-        elif self.status == Status.RUNNING:
-            if self.fail_state.period is not None:
-                return str((self.fail_state.period[1] - self.fail_state.period[0]).seconds)
-            else:
-                return '-'
+        if self.fail_state.periods != []:
+            last_period = self.fail_state.periods[-1]
+            return f'{last_period[0]} - {last_period[1]}'
+        elif self.fail_state.fail_start is not None:
+            # running is not shown -> permanently failure
+            return f'{self.fail_state.fail_start} -'
         else:
+            # failure is not shown -> permanently running
             return '-'
 
 
-def transitState(log: MonitorLog, state: InterfaceState, threshould: int) -> InterfaceState:
-    timeout_count = next_timeout_count(log, state.fail_state.timeout_count)
-    timeout_start = next_timeout_start(log, state.fail_state.timeout_start, timeout_count)
+def update_state(log: MonitorLog, state: InterfaceState, threshould: int):
+    update_timeout_count(log, state)
+    update_timeout_start(log, state)
 
-
-    if timeout_count >= threshould:
+    if state.fail_state.timeout_count >= threshould:
         # failure
         match state.status:
             case Status.FAILURE:
-                # failure continued
-                return InterfaceState(Status.FAILURE,
-                                      FailState(state.fail_state.period,
-                                                timeout_start,
-                                                timeout_count))
+                pass
+
             case _:
-                # failure start
-                return InterfaceState(Status.FAILURE,
-                                      FailState(state.fail_state.period,
-                                                timeout_start,
-                                                timeout_count))
+                state.fail_state.start()
+
+        state.status = Status.FAILURE
+
     else:
         # running
         match state.status:
-            case Status.RUNNING:
-                # running continued
-                return InterfaceState(Status.RUNNING,
-                                      FailState(state.fail_state.period,
-                                                timeout_start,
-                                                timeout_count))
+            case Status.FAILURE:
+                state.fail_state.end(log.date)
+            
             case _:
-                period = next_period(log, state)
-                # revive interface
-                return InterfaceState(Status.RUNNING,
-                                      FailState(period,
-                                                timeout_start,
-                                                timeout_count))
-    
+                pass
 
-def next_period(log: MonitorLog, state: InterfaceState) -> Optional[tuple[datetime, datetime]]:
-    if state.fail_state.timeout_start is not None:
-        return state.fail_state.timeout_start, log.date
-    else:
-        return None
+        state.status = Status.RUNNING
 
 
-def next_timeout_start(log: MonitorLog, current_date: Optional[datetime], timeout_count: int) -> Optional[datetime]:
-    if timeout_count == 1:
-        return log.date
-    elif timeout_count == 0:
-        return None
-    else:
-        return current_date
-
-
-def next_timeout_count(log: MonitorLog, current_count: int) -> int:
+def update_timeout_count(log: MonitorLog, state: InterfaceState):
     if is_timeout(log):
-        return current_count + 1
+        state.fail_state.timeout_count += 1
     else:
-        return 0
+        state.fail_state.timeout_count = 0
+
+
+def update_timeout_start(log: MonitorLog, state: InterfaceState):
+    fail_state = state.fail_state
+    if fail_state.timeout_count == 1 and fail_state.fail_start is None:
+        fail_state.timeout_start = log.date
+    elif fail_state.timeout_count == 0:
+        fail_state.timeout_start = None
 
 
 def is_timeout(log: MonitorLog) -> bool:
@@ -128,9 +119,9 @@ def failure_states(logs: list[MonitorLog], threshould: int) -> dict[IPv4Interfac
     states = dict()
     for log in sorted(logs, key=lambda log: log.date):
         if log.addr not in states:
-            states[log.addr] = InterfaceState(Status.IDLE, FailState(None, None, 0))
+            states[log.addr] = InterfaceState(Status.IDLE, FailState([], None, None, 0))
 
-        states[log.addr] = transitState(log, states[log.addr], threshould)
+        update_state(log, states[log.addr], threshould)
 
     return states
 
