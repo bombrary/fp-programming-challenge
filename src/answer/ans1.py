@@ -58,20 +58,24 @@ class InterfaceState:
 def transitState(log: MonitorLog, state: InterfaceState) -> InterfaceState:
     if is_timeout(log):
         # failure
-        if state.status == Status.RUNNING:
-            return InterfaceState(Status.FAILURE, log.date, None)
-        elif state.status == Status.FAILURE:
-            return state
-        else:
-            return InterfaceState(Status.FAILURE, log.date, None)
+        match state.status:
+            case Status.RUNNING:
+                return InterfaceState(Status.FAILURE, log.date, None)
+
+            case Status.FAILURE:
+                return state
+
+            case _:
+                return InterfaceState(Status.FAILURE, log.date, None)
     else:
         # running
-        if state.status == Status.RUNNING:
-            return state
-        elif state.status == Status.FAILURE:
-            return InterfaceState(Status.RUNNING, state.fail_start, log.date)
-        else:
-            return InterfaceState(Status.RUNNING, None, state.fail_end)
+        match state.status:
+            case Status.RUNNING:
+                return state
+            case Status.FAILURE:
+                return InterfaceState(Status.RUNNING, state.fail_start, log.date)
+            case _:
+                return InterfaceState(Status.RUNNING, None, state.fail_end)
     
 
 
