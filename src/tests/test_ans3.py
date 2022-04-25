@@ -87,14 +87,14 @@ def ring_buffer(size: int, buf: list[Optional[int]]) -> RingBuffer[Optional[int]
     # overload ended and failure start
     (3, 5, 2.5,
      InterfaceState(Status.OVERLOAD,
-                    FailState([], None, datetime(2021, 12, 31), 2),
+                    FailState([], None, datetime(2021, 12, 30), 2),
                     OverloadState([],
-                                  datetime(2021, 12, 31),
+                                  datetime(2021, 12, 25),
                                   ring_buffer(5, [1,None,None]))),
      parse_log('20220101000000,1.1.1.1/30,-'),
      InterfaceState(Status.FAILURE,
-                    FailState([], datetime(2021, 12, 31), None, 3),
-                    OverloadState([(datetime(2021, 12, 31), datetime(2022, 1, 1))],
+                    FailState([], datetime(2021, 12, 30), None, 3),
+                    OverloadState([(datetime(2021, 12, 25), datetime(2021, 12, 30))],
                                   None,
                                   ring_buffer(5, [1,None,None,None])))),
 
