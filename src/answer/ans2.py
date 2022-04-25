@@ -66,37 +66,39 @@ def transitState(log: MonitorLog, state: InterfaceState, threshould: int) -> Int
 
     if timeout_count >= threshould:
         # failure
-        if state.status == Status.FAILURE:
-            # failure continued
-            return InterfaceState(Status.FAILURE,
-                                  FailState(state.fail_state.period,
-                                            timeout_start,
-                                            timeout_count))
-        else:
-            # failure start
-            return InterfaceState(Status.FAILURE,
-                                  FailState(state.fail_state.period,
-                                            timeout_start,
-                                            timeout_count))
+        match state.status:
+            case Status.FAILURE:
+                # failure continued
+                return InterfaceState(Status.FAILURE,
+                                      FailState(state.fail_state.period,
+                                                timeout_start,
+                                                timeout_count))
+            case _:
+                # failure start
+                return InterfaceState(Status.FAILURE,
+                                      FailState(state.fail_state.period,
+                                                timeout_start,
+                                                timeout_count))
     else:
         # running
-        if state.status == Status.RUNNING:
-            # running continued
-            return InterfaceState(Status.RUNNING,
-                                  FailState(state.fail_state.period,
-                                            timeout_start,
-                                            timeout_count))
-        else:
-            if state.fail_state.timeout_start is not None:
-                period = (state.fail_state.timeout_start, log.date)
-            else:
-                period = None
+        match state.status:
+            case Status.RUNNING:
+                # running continued
+                return InterfaceState(Status.RUNNING,
+                                      FailState(state.fail_state.period,
+                                                timeout_start,
+                                                timeout_count))
+            case _:
+                if state.fail_state.timeout_start is not None:
+                    period = (state.fail_state.timeout_start, log.date)
+                else:
+                    period = None
 
-            # revive interface
-            return InterfaceState(Status.RUNNING,
-                                  FailState(period,
-                                            timeout_start,
-                                            timeout_count))
+                # revive interface
+                return InterfaceState(Status.RUNNING,
+                                      FailState(period,
+                                                timeout_start,
+                                                timeout_count))
     
 
 def next_timeout_start(log: MonitorLog, current_date: Optional[datetime], timeout_count: int) -> Optional[datetime]:
