@@ -89,17 +89,20 @@ def transitState(log: MonitorLog, state: InterfaceState, threshould: int) -> Int
                                                 timeout_start,
                                                 timeout_count))
             case _:
-                if state.fail_state.timeout_start is not None:
-                    period = (state.fail_state.timeout_start, log.date)
-                else:
-                    period = None
-
+                period = next_period(log, state)
                 # revive interface
                 return InterfaceState(Status.RUNNING,
                                       FailState(period,
                                                 timeout_start,
                                                 timeout_count))
     
+
+def next_period(log: MonitorLog, state: InterfaceState) -> Optional[tuple[datetime, datetime]]:
+    if state.fail_state.timeout_start is not None:
+        return state.fail_state.timeout_start, log.date
+    else:
+        return None
+
 
 def next_timeout_start(log: MonitorLog, current_date: Optional[datetime], timeout_count: int) -> Optional[datetime]:
     if timeout_count == 1:
