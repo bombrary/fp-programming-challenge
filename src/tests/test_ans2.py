@@ -33,6 +33,6 @@ def test_transition(state, log_str, threshould, desired):
 
 
 def test_solve_as_text(datadir):
-    actual = solve_as_text(datadir / 'in1.txt', 3)
-    desired = (datadir / 'out1.txt').read_text().rstrip()
+    actual = solve_as_text(datadir / 'in1.txt', 3) + '\n'
+    desired = (datadir / 'out1.txt').read_text()
     assert actual == desired

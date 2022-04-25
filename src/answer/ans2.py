@@ -57,16 +57,11 @@ class InterfaceState:
     status: Status
     fail_state: FailState
 
-    def interval(self) -> str:
-        if self.fail_state.periods != []:
-            last_period = self.fail_state.periods[-1]
-            return f'{last_period[0]} - {last_period[1]}'
-        elif self.fail_state.fail_start is not None:
-            # running is not shown -> permanently failure
-            return f'{self.fail_state.fail_start} -'
-        else:
-            # failure is not shown -> permanently running
-            return '-'
+    def format(self) -> list[str]:
+        format_list = [ f'{period[0]} - {period[1]}' for period in self.fail_state.periods]
+        if self.fail_state.fail_start is not None:
+            format_list.append(f'{self.fail_state.fail_start} -')
+        return format_list
 
 
 def update_state(log: MonitorLog, state: InterfaceState, threshould: int):
@@ -132,14 +127,19 @@ def parse_logs_from_file(path: str) -> list[MonitorLog]:
         return logs
         
 
-def format_failure_states(states: dict[IPv4Interface, InterfaceState]) -> list[str]:
-    return [ f'{addr}: {state.interval()}' for addr, state in states.items() ]
+def format_states(states: dict[IPv4Interface, InterfaceState]) -> list[str]:
+    format_list = []
+    for addr, state in states.items():
+        state_format = '\n  '.join(state.format())
+        format_list.append(f'{addr}:\n  {state_format}')
+
+    return format_list
 
 
 def solve_as_text(src: str, threshould: int):
     logs = parse_logs_from_file(src)
     states = failure_states(logs, threshould)
-    return '\n'.join(format_failure_states(states))
+    return '\n'.join(format_states(states))
 
 
 if __name__ == '__main__':
