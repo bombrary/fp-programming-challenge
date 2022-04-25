@@ -38,18 +38,24 @@ class Status(Enum):
 @dataclass
 class InterfaceState:
     status: Status
+    periods: list[tuple[datetime, datetime]]
     fail_start: Optional[datetime]
-    fail_end: Optional[datetime]
+
+    def start(self, fail_start: datetime):
+        self.fail_start = fail_start
+
+    def end(self, fail_end: datetime):
+        if self.fail_start is not None:
+            self.periods.append((self.fail_start, fail_end))
+            self.fail_start = None
 
     def interval(self) -> str:
-        if self.fail_start is not None and self.fail_end is not None:
-            return str((self.fail_end - self.fail_start).seconds)
+        if self.periods != []:
+            last_period = self.periods[-1]
+            return f'{last_period[0]} - {last_period[1]}'
         elif self.fail_start is not None:
             # running is not shown -> permanently failure
-            return 'inf'
-        elif self.fail_end is not None:
-            # illegal condition
-            return 'n/a'
+            return f'{self.fail_start} -'
         else:
             # failure is not shown -> permanently running
             return '-'
@@ -58,24 +64,25 @@ class InterfaceState:
 def transitState(log: MonitorLog, state: InterfaceState) -> InterfaceState:
     if is_timeout(log):
         # failure
+        status = Status.FAILURE
         match state.status:
-            case Status.RUNNING:
-                return InterfaceState(Status.FAILURE, log.date, None)
-
             case Status.FAILURE:
                 return state
 
             case _:
-                return InterfaceState(Status.FAILURE, log.date, None)
+                state.start(log.date)
+                return InterfaceState(status, state.periods, state.fail_start)
     else:
         # running
+        status = Status.RUNNING
         match state.status:
             case Status.RUNNING:
                 return state
             case Status.FAILURE:
-                return InterfaceState(Status.RUNNING, state.fail_start, log.date)
+                state.end(log.date)
+                return InterfaceState(status, state.periods, state.fail_start)
             case _:
-                return InterfaceState(Status.RUNNING, None, state.fail_end)
+                return InterfaceState(status, state.periods, state.fail_start)
     
 
 
@@ -87,7 +94,7 @@ def failure_states(logs: list[MonitorLog]) -> dict[IPv4Interface, InterfaceState
     states = dict()
     for log in sorted(logs, key=lambda log: log.date):
         if log.addr not in states:
-            states[log.addr] = InterfaceState(Status.IDLE, None, None)
+            states[log.addr] = InterfaceState(Status.IDLE, [], None)
 
         states[log.addr] = transitState(log, states[log.addr])
 
